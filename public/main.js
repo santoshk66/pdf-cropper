@@ -8,6 +8,7 @@ let invoiceBox = null;
 let isDragging = null;
 let startX, startY;
 let uploadedFilename = null;
+let isProcessing = false;
 
 const canvas = document.getElementById('pdfCanvas');
 const ctx = canvas.getContext('2d');
@@ -22,6 +23,13 @@ const processBtn = document.getElementById('processPDF');
 const prevPageBtn = document.getElementById('prevPage');
 const nextPageBtn = document.getElementById('nextPage');
 const pageInfo = document.getElementById('pageInfo');
+const loading = document.getElementById('loading');
+
+function showLoading(show) {
+  loading.style.display = show ? 'block' : 'none';
+  uploadForm.querySelector('button').disabled = show;
+  processBtn.disabled = show || !(labelBox && invoiceBox);
+}
 
 function renderPage(num) {
   pdfDoc.getPage(num).then(page => {
@@ -50,14 +58,14 @@ function updateCropBox(element, box) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-  if (!isDragging) return;
+  if (!isDragging || isProcessing) return;
   const rect = canvas.getBoundingClientRect();
   startX = e.clientX - rect.left;
   startY = e.clientY - rect.top;
 });
 
 canvas.addEventListener('mousemove', (e) => {
-  if (!isDragging) return;
+  if (!isDragging || isProcessing) return;
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -74,7 +82,7 @@ canvas.addEventListener('mousemove', (e) => {
     invoiceBox = box;
     updateCropBox(invoiceBoxElement, invoiceBox);
   }
-  processBtn.disabled = !(labelBox && invoiceBox);
+  processBtn.disabled = !(labelBox && invoiceBox) || isProcessing;
 });
 
 canvas.addEventListener('mouseup', () => {
@@ -82,34 +90,34 @@ canvas.addEventListener('mouseup', () => {
 });
 
 setLabelBtn.addEventListener('click', () => {
-  isDragging = 'label';
+  if (!isProcessing) isDragging = 'label';
 });
 
 setInvoiceBtn.addEventListener('click', () => {
-  isDragging = 'invoice';
+  if (!isProcessing) isDragging = 'invoice';
 });
 
 resetLabelBtn.addEventListener('click', () => {
   labelBox = null;
   updateCropBox(labelBoxElement, null);
-  processBtn.disabled = !(labelBox && invoiceBox);
+  processBtn.disabled = !(labelBox && invoiceBox) || isProcessing;
 });
 
 resetInvoiceBtn.addEventListener('click', () => {
   invoiceBox = null;
   updateCropBox(invoiceBoxElement, null);
-  processBtn.disabled = !(labelBox && invoiceBox);
+  processBtn.disabled = !(labelBox && invoiceBox) || isProcessing;
 });
 
 prevPageBtn.addEventListener('click', () => {
-  if (pageNum > 1) {
+  if (pageNum > 1 && !isProcessing) {
     pageNum--;
     renderPage(pageNum);
   }
 });
 
 nextPageBtn.addEventListener('click', () => {
-  if (pageNum < numPages) {
+  if (pageNum < numPages && !isProcessing) {
     pageNum++;
     renderPage(pageNum);
   }
@@ -117,34 +125,52 @@ nextPageBtn.addEventListener('click', () => {
 
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const formData = new FormData(uploadForm);
-  const response = await fetch('/upload', {
-    method: 'POST',
-    body: formData,
-  });
-  const { filename } = await response.json();
-  uploadedFilename = filename;
-  const file = uploadForm.querySelector('input[type="file"]').files[0];
-  const arrayBuffer = await file.arrayBuffer();
-  pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
-  numPages = pdfDoc.numPages;
-  pageNum = 1;
-  renderPage(pageNum);
+  if (isProcessing) return;
+  showLoading(true);
+  isProcessing = true;
+  try {
+    const formData = new FormData(uploadForm);
+    const response = await fetch('/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const { filename } = await response.json();
+    uploadedFilename = filename;
+    const file = uploadForm.querySelector('input[type="file"]').files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+    numPages = pdfDoc.numPages;
+    pageNum = 1;
+    renderPage(pageNum);
+  } catch (error) {
+    console.error('Upload failed:', error);
+    alert('Failed to upload PDF. Please try again.');
+  } finally {
+    showLoading(false);
+    isProcessing = false;
+  }
 });
 
 processBtn.addEventListener('click', async () => {
-  if (!labelBox || !invoiceBox || !uploadedFilename) return;
-  const response = await fetch('/crop', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: uploadedFilename, labelBox, invoiceBox }),
-  });
-  const { labelUrl, invoiceUrl } = await response.json();
-  const link = document.createElement('a');
-  link.href = labelUrl;
-  link.download = 'labels.pdf';
-  link.click();
-  link.href = invoiceUrl;
-  link.download = 'invoices.pdf';
-  link.click();
+  if (!labelBox || !invoiceBox || !uploadedFilename || isProcessing) return;
+  showLoading(true);
+  isProcessing = true;
+  try {
+    const response = await fetch('/crop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: uploadedFilename, labelBox, invoiceBox }),
+    });
+    const { outputUrl } = await response.json();
+    const link = document.createElement('a');
+    link.href = outputUrl;
+    link.download = 'cropped_output.pdf';
+    link.click();
+  } catch (error) {
+    console.error('Processing failed:', error);
+    alert('Failed to process PDF. Please try again.');
+  } finally {
+    showLoading(false);
+    isProcessing = false;
+  }
 });
