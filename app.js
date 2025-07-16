@@ -53,7 +53,7 @@ app.post('/crop', async (req, res) => {
   res.json({ labelUrl: `/outputs/labels-${filename}`, invoiceUrl: `/outputs/invoices-${filename}` });
 });
 
-app.use('/outputs', express.static(path.join(__dirname "outputs")));
+app.use('/outputs', express.static(path.join(__dirname, 'outputs')));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PDF cropper running on port ${port}`));
