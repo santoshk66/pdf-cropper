@@ -20,40 +20,79 @@ await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
 await fs.mkdir(path.join(__dirname, 'outputs'), { recursive: true });
 
 app.post('/upload', upload.single('pdf'), async (req, res) => {
-  res.json({ filename: req.file.filename });
+  try {
+    res.json({ filename: req.file.filename });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Failed to upload PDF' });
+  }
 });
 
 app.post('/crop', async (req, res) => {
-  const { filename, labelBox, invoiceBox } = req.body;
-  const filePath = path.join(__dirname, 'uploads', filename);
-  const data = await fs.readFile(filePath);
-  const srcPdf = await PDFDocument.load(data);
+  try {
+    const { filename, labelBox, invoiceBox } = req.body;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    const data = await fs.readFile(filePath);
+    const srcPdf = await PDFDocument.load(data);
 
-  const labelPdf = await PDFDocument.create();
-  const invoicePdf = await PDFDocument.create();
+    const outputPdf = await PDFDocument.create();
 
-  for (let i = 0; i < srcPdf.getPageCount(); i++) {
-    const [labelPage] = await labelPdf.copyPages(srcPdf, [i]);
-    labelPage.setCropBox(labelBox.x, labelBox.y, labelBox.width, labelBox.height);
-    labelPdf.addPage(labelPage);
+    for (let i = 0; i < srcPdf.getPageCount(); i++) {
+      const [sourcePage] = await outputPdf.copyPages(srcPdf, [i]);
+      const { height } = sourcePage.getSize();
 
-    const [invoicePage] = await invoicePdf.copyPages(srcPdf, [i]);
-    invoicePage.setCropBox(invoiceBox.x, invoiceBox.y, invoiceBox.width, invoiceBox.height);
-    invoicePdf.addPage(invoicePage);
+      // Create label page
+      const labelPage = outputPdf.addPage([labelBox.width, labelBox.height]);
+      const labelContent = await outputPdf.embedPage(sourcePage, {
+        left: labelBox.x,
+        bottom: height - labelBox.y - labelBox.height,
+        right: labelBox.x + labelBox.width,
+        top: height - labelBox.y,
+      });
+      labelPage.drawPage(labelContent, { x: 0, y: 0 });
+
+      // Create invoice page
+      const invoicePage = outputPdf.addPage([invoiceBox.width, invoiceBox.height]);
+      const invoiceContent = await outputPdf.embedPage(sourcePage, {
+        left: invoiceBox.x,
+        bottom: height - invoiceBox.y - invoiceBox.height,
+        right: invoiceBox.x + invoiceBox.width,
+        top: height - invoiceBox.y,
+      });
+      invoicePage.drawPage(invoiceContent, { x: 0, y: 0 });
+    }
+
+    const outputBytes = await outputPdf.save();
+    const outputPath = path.join(__dirname, 'outputs', `output-${filename}`);
+    await fs.writeFile(outputPath, outputBytes);
+
+    // Clean up uploaded file
+    await fs.unlink(filePath).catch(err => console.warn('Failed to delete uploaded file:', err));
+
+    res.json({ outputUrl: `/outputs/output-${filename}` });
+  } catch (error) {
+    console.error('Crop error:', error);
+    res.status(500).json({ error: 'Failed to process PDF' });
   }
-
-  const labelBytes = await labelPdf.save();
-  const invoiceBytes = await invoicePdf.save();
-
-  const labelPath = path.join(__dirname, 'outputs', `labels-${filename}`);
-  const invoicePath = path.join(__dirname, 'outputs', `invoices-${filename}`);
-  await fs.writeFile(labelPath, labelBytes);
-  await fs.writeFile(invoicePath, invoiceBytes);
-
-  res.json({ labelUrl: `/outputs/labels-${filename}`, invoiceUrl: `/outputs/invoices-${filename}` });
 });
 
 app.use('/outputs', express.static(path.join(__dirname, 'outputs')));
+
+// Periodic cleanup of output files (every 10 minutes)
+setInterval(async () => {
+  try {
+    const files = await fs.readdir(path.join(__dirname, 'outputs'));
+    for (const file of files) {
+      const filePath = path.join(__dirname, 'outputs', file);
+      const stats = await fs.stat(filePath);
+      if (Date.now() - stats.mtimeMs > 30 * 60 * 1000) { // Delete files older than 30 minutes
+        await fs.unlink(filePath);
+      }
+    }
+  } catch (error) {
+    console.warn('Cleanup error:', error);
+  }
+}, 10 * 60 * 1000);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`PDF cropper running on port ${port}`));
