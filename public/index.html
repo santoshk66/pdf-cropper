@@ -7,53 +7,37 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <style>
     body {
-      font-family: 'Helvetica Neue', 'Arial', sans-serif;
-      margin: 0;
-      padding: 2rem;
-      background: #f7fafc;
-      color: #2d3748;
-    }
-    .container {
+      font-family: 'Inter', Arial, sans-serif;
       max-width: 1200px;
       margin: 0 auto;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      padding: 2rem;
+      padding: 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
     h2 {
-      font-size: 1.75rem;
-      font-weight: 600;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2d3748;
       text-align: center;
       margin-bottom: 1.5rem;
-      color: #1a202c;
     }
     #uploadForm {
       display: flex;
       gap: 1rem;
       margin-bottom: 1.5rem;
-      justify-content: center;
     }
     #uploadForm input[type="file"] {
-      padding: 0.75rem;
+      padding: 0.5rem;
       border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      background: #f7fafc;
-      font-size: 0.875rem;
-    }
-    #uploadForm button {
-      background: #2b6cb0;
-      padding: 0.75rem 1.5rem;
-      font-size: 0.875rem;
+      border-radius: 4px;
+      background: white;
     }
     #preview-container {
       position: relative;
       display: inline-block;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       background: white;
-      border-radius: 8px;
       padding: 1rem;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      margin-bottom: 1.5rem;
+      border-radius: 8px;
     }
     canvas {
       border: 1px solid #e2e8f0;
@@ -64,84 +48,88 @@
       pointer-events: none;
     }
     .label-selector {
-      border: 2px dashed #2b6cb0;
+      border: 2px dashed #3b82f6;
     }
     .invoice-selector {
-      border: 2px dashed #4a5568;
+      border: 2px dashed #ef4444;
     }
     .label-selector::before {
       content: 'Label';
-      background: #2b6cb0;
+      background: #3b82f6;
       color: white;
       padding: 4px 8px;
-      font-size: 0.75rem;
+      font-size: 14px;
       border-radius: 4px;
-      font-weight: 500;
     }
     .invoice-selector::before {
       content: 'Invoice';
-      background: #4a5568;
+      background: #ef4444;
       color: white;
       padding: 4px 8px;
-      font-size: 0.75rem;
+      font-size: 14px;
       border-radius: 4px;
-      font-weight: 500;
     }
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem;
+      gap: 1rem;
       justify-content: center;
       align-items: center;
+      margin-top: 1.5rem;
+      background: white;
       padding: 1rem;
-      background: #f7fafc;
       border-radius: 8px;
-      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     button {
-      padding: 0.75rem 1.5rem;
+      padding: 10px 20px;
       background: #4a5568;
       color: white;
       border: none;
       border-radius: 6px;
-      font-size: 0.875rem;
+      font-size: 1rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
+      transition: background 0.3s, transform 0.2s;
     }
     button:hover:not(:disabled) {
       background: #2d3748;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
     }
     button:disabled {
-      background: #cbd5e0;
+      background: #a0aec0;
       cursor: not-allowed;
     }
-    #setLabel, #setInvoice {
-      background: #2b6cb0;
+    #setLabel {
+      background: #3b82f6;
     }
-    #setLabel:hover:not(:disabled), #setInvoice:hover:not(:disabled) {
-      background: #2c5282;
+    #setLabel:hover:not(:disabled) {
+      background: #2563eb;
+    }
+    #setInvoice {
+      background: #ef4444;
+    }
+    #setInvoice:hover:not(:disabled) {
+      background: #dc2626;
     }
     #resetLabel, #resetInvoice {
-      background: #718096;
+      background: #f59e0b;
     }
     #resetLabel:hover:not(:disabled), #resetInvoice:hover:not(:disabled) {
-      background: #5a6b7b;
+      background: #d97706;
     }
     #processPDF {
-      background: #2b6cb0;
+      background: #10b981;
     }
     #processPDF:hover:not(:disabled) {
-      background: #2c5282;
+      background: #059669;
     }
     #pageInfo {
-      padding: 0.5rem 1rem;
-      background: #edf2f7;
-      color: #1a202c;
+      background: #e2e8f0;
+      color: #2d3748;
+      padding: 8px 16px;
       border-radius: 20px;
-      font-size: 0.875rem;
-      font-weight: 500;
+      font-weight: 600;
     }
     #loading {
       display: none;
@@ -149,39 +137,33 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.8);
       color: white;
-      padding: 1.5rem 2rem;
+      padding: 1.5rem;
       border-radius: 8px;
       z-index: 1000;
-      font-size: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
     }
     .spinner {
-      border: 5px solid #e2e8f0;
-      border-top: 5px solid #2b6cb0;
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3b82f6;
       border-radius: 50%;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 12px;
     }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
     @media (max-width: 768px) {
-      .container {
-        padding: 1rem;
-      }
       .controls {
         flex-direction: column;
         align-items: stretch;
       }
       button {
         width: 100%;
-        padding: 0.75rem;
       }
     }
   </style>
