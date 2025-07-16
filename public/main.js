@@ -29,7 +29,6 @@ function showLoading(show) {
   loading.style.display = show ? 'block' : 'none';
   uploadForm.querySelector('button').disabled = show;
   processBtn.disabled = show || !(labelBox && invoiceBox);
-  canvas.style.cursor = show ? 'wait' : isDragging ? 'crosshair' : 'default';
 }
 
 function renderPage(num) {
@@ -42,8 +41,6 @@ function renderPage(num) {
       pageInfo.textContent = `Page ${num} of ${numPages}`;
       prevPageBtn.disabled = num === 1;
       nextPageBtn.disabled = num === numPages;
-      updateCropBox(labelBoxElement, labelBox);
-      updateCropBox(invoiceBoxElement, invoiceBox);
     });
   });
 }
@@ -63,15 +60,15 @@ function updateCropBox(element, box) {
 canvas.addEventListener('mousedown', (e) => {
   if (!isDragging || isProcessing) return;
   const rect = canvas.getBoundingClientRect();
-  startX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-  startY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+  startX = e.clientX - rect.left;
+  startY = e.clientY - rect.top;
 });
 
 canvas.addEventListener('mousemove', (e) => {
   if (!isDragging || isProcessing) return;
   const rect = canvas.getBoundingClientRect();
-  const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-  const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
   const box = {
     x: Math.min(startX, x),
     y: Math.min(startY, y),
@@ -90,21 +87,14 @@ canvas.addEventListener('mousemove', (e) => {
 
 canvas.addEventListener('mouseup', () => {
   isDragging = null;
-  canvas.style.cursor = 'default';
 });
 
 setLabelBtn.addEventListener('click', () => {
-  if (!isProcessing) {
-    isDragging = 'label';
-    canvas.style.cursor = 'crosshair';
-  }
+  if (!isProcessing) isDragging = 'label';
 });
 
 setInvoiceBtn.addEventListener('click', () => {
-  if (!isProcessing) {
-    isDragging = 'invoice';
-    canvas.style.cursor = 'crosshair';
-  }
+  if (!isProcessing) isDragging = 'invoice';
 });
 
 resetLabelBtn.addEventListener('click', () => {
@@ -144,7 +134,6 @@ uploadForm.addEventListener('submit', async (e) => {
       method: 'POST',
       body: formData,
     });
-    if (!response.ok) throw new Error('Upload failed');
     const { filename } = await response.json();
     uploadedFilename = filename;
     const file = uploadForm.querySelector('input[type="file"]').files[0];
@@ -172,7 +161,6 @@ processBtn.addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: uploadedFilename, labelBox, invoiceBox }),
     });
-    if (!response.ok) throw new Error('Processing failed');
     const { outputUrl } = await response.json();
     const link = document.createElement('a');
     link.href = outputUrl;
