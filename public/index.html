@@ -7,8 +7,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <style>
     canvas { border: 1px solid black; }
-    #preview-container { position: relative; }
-    .selector { position: absolute; border: 2px dashed red; pointer-events: none; }
+    #preview-container { position: relative; display: inline-block; }
+    .selector { position: absolute; pointer-events: none; }
+    .label-selector { border: 2px dashed blue; }
+    .invoice-selector { border: 2px dashed red; }
+    .label-selector::before { content: 'Label'; background: blue; color: white; padding: 2px; font-size: 12px; }
+    .invoice-selector::before { content: 'Invoice'; background: red; color: white; padding: 2px; font-size: 12px; }
+    button { margin: 5px; padding: 8px 16px; }
   </style>
 </head>
 <body>
@@ -19,11 +24,19 @@
   </form>
   <div id="preview-container">
     <canvas id="pdfCanvas"></canvas>
-    <div id="cropBox" class="selector"></div>
+    <div id="labelBox" class="selector label-selector"></div>
+    <div id="invoiceBox" class="selector invoice-selector"></div>
   </div>
-  <button id="setLabel">Set Label Crop</button>
-  <button id="setInvoice">Set Invoice Crop</button>
-  <button id="processPDF">Process PDF</button>
+  <div>
+    <button id="prevPage" disabled>Previous Page</button>
+    <span id="pageInfo"></span>
+    <button id="nextPage" disabled>Next Page</button>
+    <button id="setLabel">Set Label Crop</button>
+    <button id="setInvoice">Set Invoice Crop</button>
+    <button id="resetLabel">Reset Label Crop</button>
+    <button id="resetInvoice">Reset Invoice Crop</button>
+    <button id="processPDF" disabled>Process PDF</button>
+  </div>
   <script src="/main.js"></script>
 </body>
 </html>
